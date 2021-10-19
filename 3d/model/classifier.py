@@ -5,9 +5,7 @@ from tensorflow import keras
 
 def get_model(width=128, height=128, depth=64, channel=1):
     """Build a 3D convolutional neural network model."""
-
     inputs = keras.Input(shape=(width, height, depth, channel))
-
     x = layers.Conv3D(filters=64, kernel_size=3, activation="relu")(inputs)
     x = layers.BatchNormalization()(x)
 
