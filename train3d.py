@@ -22,7 +22,6 @@ df = df[~df.BraTS21ID.isin([109, 709, 123])]
 df = df.reset_index(drop=True)
 
 
-
 skf = StratifiedKFold(n_splits=num_of_fold, shuffle=True, random_state=global_seed)
 for index, (train_index, val_index) in enumerate(skf.split(X=df.index, y=df.MGMT_value)):
     df.loc[val_index, 'fold'] = index
@@ -30,7 +29,7 @@ print(df.groupby(['fold', df.MGMT_value]).size())
 
 
 
-from dataloader.sample_loader import BrainTSGeneratorRegistered, BrainTSGeneratorRaw
+from dataloader._3d.sample_loader import BrainTSGeneratorRegistered, BrainTSGeneratorRaw
 
 def fold_generator(fold):
     train_labels = df[df.fold != fold].reset_index(drop=True)
@@ -67,7 +66,7 @@ val_data = tf.data.Dataset.from_generator(
 
 
 if aug_lib == 'keras' :
-    from augment.keras_augmentation import *
+    from augment._3d.keras_augmentation import *
     augmentor = keras_augment 
 elif aug_lib == 'tf':
     from augment.tf_augmentation import * 
@@ -80,7 +79,7 @@ else:
     augmentor = None
     
     
-from dataloader.tf_generator import TFDataGenerator
+from dataloader._3d.tf_generator import TFDataGenerator
 tf_gen = TFDataGenerator(train_data,
                          modeling_in=modeling_in, 
                          shuffle=True,     
@@ -132,9 +131,7 @@ elif modeling_in == '3D':
     valid_generator = tf_gen.get_3D_data()
     
     
-            
-
-from model.classifier import get_model 
+from model._3d.classifier import get_model 
 tf.keras.backend.clear_session()
 model = get_model(input_width, input_height, input_depth, input_channel)
 model.summary()
