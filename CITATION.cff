@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Mohammed Innat"
+title: "BraTS-MGMT-Classification"
+version: 1.0.0
+date-released: 2021-11-20
+url: "https://github.com/innat/BraTS-MGMT-Classification"
