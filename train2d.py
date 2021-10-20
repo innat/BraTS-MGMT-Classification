@@ -181,22 +181,3 @@ model.fit(
     callbacks=[lr, checkpoint_cb],
     verbose=1
 )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
