@@ -156,24 +156,3 @@ model.fit(
     validation_data=valid_generator,
     callbacks=[checkpoint_cb], verbose=1
 )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
