@@ -1,3 +1,7 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+import tensorflow as tf 
+
 # Training Fold
 num_of_fold = 5
 fold = 0
@@ -13,20 +17,25 @@ input_depth   = 24 # Total number of picked slices from each modality, e.g. 30
 mixed_precision = True
 
 
-train_df_path  = 'D:/Kaggle & DataSets/Kaggle/BrainTumor/train_labels.csv'
-trian_img_path = 'D:/Kaggle & DataSets/Kaggle/BrainTumor/train_brain_tumor_kaggle/'
+def sample_path(registered_samples):
+    if registered_samples:
+        train_df_path  = 'D:/Kaggle & DataSets/Kaggle/BrainTumor/train_labels.csv'
+        trian_img_path = 'D:/Kaggle & DataSets/Kaggle/BrainTumor/registered_brain_tumor_kaggle/train/'
+    else:
+        train_df_path  = 'D:/Kaggle & DataSets/Kaggle/BrainTumor/train_labels.csv'
+        trian_img_path = 'D:/Kaggle & DataSets/Kaggle/BrainTumor/train_brain_tumor_kaggle/'
+        
+    return train_df_path, trian_img_path, registered_samples
+        
 
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-import tensorflow as tf 
-
-# Params 
-AUTO = tf.data.AUTOTUNE
-print(tf.executing_eagerly())
-print('A: ', tf.test.is_built_with_cuda)
-print('B: ', tf.test.gpu_device_name())
 
 def accelerate_gpu(mp=False):
+    # Params 
+    AUTO = tf.data.AUTOTUNE
+    print(tf.executing_eagerly())
+    print('A: ', tf.test.is_built_with_cuda)
+    print('B: ', tf.test.gpu_device_name())
+    
     GPUS = tf.config.list_physical_devices('GPU')
     if GPUS:
         try:

@@ -1,9 +1,9 @@
 import tensorflow as tf 
 import numpy as np 
-import pydicom, glob, cv2
+import pydicom, glob, cv2, os
 from config import *
 from pathlib import Path
-
+   
 class BrainTSGeneratorRaw(tf.keras.utils.Sequence):
     def __init__(self, dicom_path, data):
         self.data = data
@@ -18,9 +18,9 @@ class BrainTSGeneratorRaw(tf.keras.utils.Sequence):
    
         # for 3D modeling 
         flair = []
-        t1w = []
+        t1w   = []
         t1wce = []
-        t2w = [] 
+        t2w   = [] 
         
         # Iterating over each modality
         for m, t in enumerate(input_modality):
@@ -28,7 +28,7 @@ class BrainTSGeneratorRaw(tf.keras.utils.Sequence):
                 glob.glob(os.path.join(patient_ids, t, "*")), 
                 key=lambda x: int(x[:-4].split("-")[-1]),
             )
-
+      
             # Pick input_depth times slices -
             # - from middle range possible 
             strt_idx = (len(t_paths) // 2) - (input_depth // 2)
@@ -42,6 +42,7 @@ class BrainTSGeneratorRaw(tf.keras.utils.Sequence):
             for i in picked_slices:
                 # Reading pixel file from dicom file 
                 image = read_dicom_xray_and_normalize(path=i, voxel=None)
+                print(image.shape)
 
                 # It's possible that among picked_slices, there can be some black image, 
                 # which is not wanted, so we iterate back to dicom file to get - 
@@ -63,29 +64,25 @@ class BrainTSGeneratorRaw(tf.keras.utils.Sequence):
                 rows = np.where(np.max(image, 0) > 0)[0]
                 cols = np.where(np.max(image, 1) > 0)[0]
                 if rows.size:
-                    image = image[cols[0]: cols[-1] + 1, rows[0]: rows[-1] + 1]
+                    image = image[cols[0]: cols[-1] + 1, 
+                                  rows[0]: rows[-1] + 1]
                 else:
                     image = image[:1, :1]
            
                 # In 3D modeling, we now add frames / slices of individual modalities 
-                if modeling_in == '3D':
-                    if m == 0:
-                        # Adding flair 
-                        flair.append(cv2.resize(image, (input_height, input_width)))
-                    elif m == 1:
-                        # Adding t1w
-                        t1w.append(cv2.resize(image, (input_height, input_width)))
-                    elif m == 2:
-                        # Adding t1wce
-                        t1wce.append(cv2.resize(image, (input_height, input_width)))
-                    elif m == 3:
-                        # Adding t2w
-                        t2w.append(cv2.resize(image, (input_height, input_width)))
-                elif modeling_in == '2D':
-                    # Adding all frames at a time 
-                    channel.append(cv2.resize(image, (input_height, input_width)))
-                    
-
+                if m == 0:
+                    # Adding flair 
+                    flair.append(cv2.resize(image, (input_height, input_width)))
+                elif m == 1:
+                    # Adding t1w
+                    t1w.append(cv2.resize(image,   (input_height, input_width)))
+                elif m == 2:
+                    # Adding t1wce
+                    t1wce.append(cv2.resize(image, (input_height, input_width)))
+                elif m == 3:
+                    # Adding t2w
+                    t2w.append(cv2.resize(image,   (input_height, input_width)))
+            
         if modeling_in == '3D':
             # for flair 
             while True:
@@ -188,10 +185,10 @@ def read_dicom_xray_and_normalize(path=None, voxel=None):
     else:
         data = voxel
 
-#     if data.mean() <= 0.8:
-#         # If all black, return data and find non-black if possible.
-#         return data
-    
+    if data.mean() <= 0.8:
+        # If all black, return data and find non-black if possible.
+        return data
+
     data = data - np.min(data)
     data = data / np.max(data)
     data = (data * 255).astype(np.uint8)
@@ -202,10 +199,4 @@ def load_voxel(study_id, scan_type="FLAIR", split="train", sz=256):
     data_root = Path('D:/Kaggle & DataSets/Kaggle/BrainTumor/registered_brain_tumor_kaggle')
     npy_path = Path(data_root).joinpath(split, study_id, f"{scan_type}.npy")
     voxel = np.load(str(npy_path))
-    return voxel
-
-def normalize_contrast(voxel):
-    voxel = voxel - np.min(voxel)
-    voxel = voxel / np.max(voxel)
-    voxel = (voxel * 255).astype(np.uint8)
     return voxel

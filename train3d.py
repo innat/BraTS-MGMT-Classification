@@ -3,26 +3,26 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import warnings
 warnings.filterwarnings("ignore")
-
-import numpy as np 
 import pandas as pd 
 import matplotlib.pyplot as plt 
-import os, glob, random, cv2, glob, pydicom
 from sklearn.model_selection import StratifiedKFold
 import tensorflow as tf
-from config import *
+import config
 
 # For reproducible results    
-seed_all(global_seed)
-accelerate_gpu(mixed_precision)
+config.seed_all(config.global_seed)
+config.accelerate_gpu(config.mixed_precision)
 
 # these are corrupted id, so here we are just removing them
+train_df_path, trian_img_path, registered_samples = config.sample_path(registered_samples = False)
 df = pd.read_csv(train_df_path)
 df = df[~df.BraTS21ID.isin([109, 709, 123])]
 df = df.reset_index(drop=True)
 
 
-skf = StratifiedKFold(n_splits=num_of_fold, shuffle=True, random_state=global_seed)
+skf = StratifiedKFold(n_splits=config.num_of_fold, 
+                      shuffle=True, 
+                      random_state=config.global_seed)
 for index, (train_index, val_index) in enumerate(skf.split(X=df.index, y=df.MGMT_value)):
     df.loc[val_index, 'fold'] = index
 print(df.groupby(['fold', df.MGMT_value]).size())
@@ -31,16 +31,24 @@ print(df.groupby(['fold', df.MGMT_value]).size())
 
 from dataloader._3d.sample_loader import BrainTSGeneratorRegistered, BrainTSGeneratorRaw
 
+
 def fold_generator(fold):
     train_labels = df[df.fold != fold].reset_index(drop=True)
     val_labels   = df[df.fold == fold].reset_index(drop=True)
-    return (
-        BrainTSGeneratorRaw(trian_img_path, train_labels),
-        BrainTSGeneratorRaw(trian_img_path, val_labels)
-    )
+    
+    if registered_samples:
+        return (
+            BrainTSGeneratorRegistered(trian_img_path, train_labels),
+            BrainTSGeneratorRegistered(trian_img_path, val_labels)
+        )
+    else:
+        return (
+            BrainTSGeneratorRaw(trian_img_path, train_labels),
+            BrainTSGeneratorRaw(trian_img_path, val_labels)
+        )
 
 # Get fold set
-train_gen, val_gen = fold_generator(fold)
+train_gen, val_gen = fold_generator(config.fold)
 
 for x, y in train_gen:
     print(x.shape, y.shape)
@@ -50,7 +58,8 @@ train_data = tf.data.Dataset.from_generator(
     lambda: map(tuple, train_gen),
     (tf.float32, tf.float32),
     (
-        tf.TensorShape([input_height, input_width, input_depth, input_channel]),
+        tf.TensorShape([config.input_height, config.input_width, config.input_depth, 
+                        config.input_channel]),
         tf.TensorShape([]),
     ),
 )
@@ -59,22 +68,23 @@ val_data = tf.data.Dataset.from_generator(
     lambda: map(tuple, val_gen),
     (tf.float32, tf.float32),
     (
-        tf.TensorShape([input_height, input_width, input_depth, input_channel]),
+        tf.TensorShape([config.input_height, config.input_width, config.input_depth,
+                        config.input_channel]),
         tf.TensorShape([]),
     ),
 )
 
 
-if aug_lib == 'keras' :
-    from augment._3d.keras_augmentation import *
+from augment._3d.keras_augmentation import *
+from augment._3d.tf_augmentation import * 
+from augment._3d.volumentation import * 
+
+if config.aug_lib == 'keras' :
     augmentor = keras_augment 
-elif aug_lib == 'tf':
-    from augment.tf_augmentation import * 
+elif config.aug_lib == 'tf':
     augmentor = tf_image_augmentation  
-elif aug_lib == 'volumentations':
-    from augment.volumentation import * 
+elif config.aug_lib == 'volumentations':
     augmentor = volumentations_aug 
-    
 else:
     augmentor = None
     
@@ -87,11 +97,7 @@ tf_gen = TFDataGenerator(train_data,
                          augmentor=augmentor,
                          batch_size=batch_size,   
                          rescale=False)     
-                   
-if modeling_in == '2D':
-    train_generator = tf_gen.get_2D_data()
-elif modeling_in == '3D':
-    train_generator = tf_gen.get_3D_data()
+train_generator = tf_gen.get_3D_data()
 
 
 x, y = next(iter(train_generator))
@@ -125,10 +131,7 @@ tf_gen = TFDataGenerator(val_data,
                          batch_size=batch_size,   
                          rescale=False    
                         ) 
-if modeling_in == '2D':
-    valid_generator = tf_gen.get_2D_data()
-elif modeling_in == '3D':
-    valid_generator = tf_gen.get_3D_data()
+valid_generator = tf_gen.get_3D_data()
     
     
 from model._3d.classifier import get_model 

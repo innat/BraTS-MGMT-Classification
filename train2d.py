@@ -11,26 +11,27 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import warnings
 warnings.filterwarnings("ignore")
 
-import numpy as np 
 import pandas as pd 
 import matplotlib.pyplot as plt 
-import os, glob, random, cv2, glob, pydicom
 from sklearn.model_selection import StratifiedKFold
 import tensorflow as tf
-from config import *
+import config 
 
 # For reproducible results    
-seed_all(global_seed)
-accelerate_gpu(mixed_precision)
+config.seed_all(config.global_seed)
+config.accelerate_gpu(config.mixed_precision)
 
 # these are corrupted id, so here we are just removing them
-df = pd.read_csv(train_df_path)
+df = pd.read_csv(config.train_df_path)
 df = df[~df.BraTS21ID.isin([109, 709, 123])]
 df = df.reset_index(drop=True)
 
 
-skf = StratifiedKFold(n_splits=num_of_fold, shuffle=True, random_state=global_seed)
-for index, (train_index, val_index) in enumerate(skf.split(X=df.index, y=df.MGMT_value)):
+skf = StratifiedKFold(n_splits=config.num_of_fold, 
+                      shuffle=True, 
+                      random_state=config.global_seed)
+for index, (train_index, val_index) in enumerate(skf.split(X=df.index,
+                                                           y=df.MGMT_value)):
     df.loc[val_index, 'fold'] = index
 print(df.groupby(['fold', df.MGMT_value]).size())
 
@@ -38,17 +39,15 @@ from dataloader._2d.sample_loader import BrainTSGeneratorRegistered, BrainTSGene
 
 
 def fold_generator(fold):
-    
     train_labels = df[df.fold != fold].reset_index(drop=True)
     val_labels   = df[df.fold == fold].reset_index(drop=True)
-    
     return (
         BrainTSGeneratorRaw(trian_img_path, train_labels, split='train'), 
         BrainTSGeneratorRaw(trian_img_path, val_labels,  split='validation')
     )
 
 # Get fold set
-train_gen, val_gen = fold_generator(fold)
+train_gen, val_gen = fold_generator(config.fold)
 
 train_data = tf.data.Dataset.from_generator(
     lambda: map(tuple, train_gen),
@@ -89,20 +88,12 @@ val_data = tf.data.Dataset.from_generator(
 )
 
 
-if aug_lib == 'keras' :
-    from augment._2d.keras_augmentation import *
-    augmentor = keras_augment 
-else:
-    augmentor = None
-
-
-
 from dataloader._2d.tf_generator import TFDataGenerator
 
 tf_gen = TFDataGenerator(train_data,
                          shuffle=True,     
-                         aug_lib='keras', 
-                         batch_size=batch_size,   
+                         aug_lib=config.aug_lib, 
+                         batch_size=config.batch_size,   
                          rescale=True
                         )     
 train_generator = tf_gen.get_3D_data()
@@ -111,11 +102,10 @@ train_generator = tf_gen.get_3D_data()
 tf_gen = TFDataGenerator(val_data,
                          shuffle=False,     
                          aug_lib=None,    
-                         batch_size=batch_size,   
+                         batch_size=config.batch_size,   
                          rescale=True    
                         ) 
 valid_generator = tf_gen.get_3D_data()
-
 
 x, y = next(iter(train_generator))
 a = x['flair'] 
@@ -135,7 +125,7 @@ for j, (x, y) in enumerate(train_generator.take(1)):
     
     for m in [a, b, c, d]:
         plt.figure(figsize=(25, 25))
-        for i in range(input_depth):
+        for i in range(config.input_depth):
             if y[0].numpy() != 0 and j != 0:
                 continue 
             plt.subplot(8, 8, i + 1)
@@ -146,16 +136,14 @@ for j, (x, y) in enumerate(train_generator.take(1)):
         print('\n'*2)
         
         
+### -------------------------------------------------------------------
+import tensorflow_addons as tfa
 from model._2d.classifier import get_model 
+from model_utils import get_lr_callback, checkpoint_cb
 
 tf.keras.backend.clear_session()
 model = get_model(summary=True, plot=False)
-
-import tensorflow_addons as tfa
-from model_utils import get_lr_callback, checkpoint_cb
-
-
-lr = get_lr_callback(batch_size)
+lr = get_lr_callback(config.batch_size)
 
 #Optimizers 
 # tf.keras.optimizers.SGD(0.01)

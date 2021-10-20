@@ -4,9 +4,8 @@ Created on Sun Oct 17 11:19:47 2021
 
 @author: innat
 """
-
-from augment.volumentation import *
 from config import *
+from functools import partial
 
 class TFDataGenerator:
     def __init__(self, data, modeling_in, 
