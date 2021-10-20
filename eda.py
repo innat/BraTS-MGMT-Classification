@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Oct 17 13:49:14 2021
-
 @author: innat
 """
 
 from config import *
+import config
 
+
+train_df_path, trian_img_path, registered_samples = config.sample_path(registered_samples = False)
 df = pd.read_csv(train_df_path); print(df.shape)
 display(df.head()); print(df.MGMT_value.value_counts())
 
